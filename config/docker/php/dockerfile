@@ -1,0 +1,70 @@
+FROM php:7.2-fpm-alpine
+
+RUN apk add --no-cache bash vim git \
+    openssl \
+    libcurl curl curl-dev \
+    autoconf gcc g++ make \
+    zlib-dev \
+    libmemcached-dev \
+    openssh
+
+RUN \
+    docker-php-ext-install sockets && \
+    docker-php-ext-install json && \
+    docker-php-ext-install ctype && \
+    docker-php-ext-install pdo && \
+    docker-php-ext-install pdo_mysql && \
+    docker-php-ext-install curl && \
+    docker-php-ext-install bcmath && \
+    docker-php-ext-install mbstring && \
+    docker-php-ext-install zip
+
+### GD - START
+RUN apk add --no-cache freetype libpng libjpeg-turbo freetype-dev libpng-dev libjpeg-turbo-dev && \
+    docker-php-ext-configure gd \
+        --with-gd \
+        --with-freetype-dir=/usr/include/ \
+        --with-png-dir=/usr/include/ \
+        --with-jpeg-dir=/usr/include/ && \
+    NPROC=$(grep -c ^processor /proc/cpuinfo 2>/dev/null || 1) && \
+    docker-php-ext-install gd
+### GD - END
+
+RUN docker-php-ext-configure opcache --enable-opcache \
+    && docker-php-ext-install opcache
+
+COPY --chown=www-data:www-data config/docker/ /tmp/
+
+RUN mv /tmp/php/php.ini /usr/local/etc/php/ && \
+    mv /tmp/php/www.conf /usr/local/etc/php-fpm.d/ && \
+    rm -rf /tmp/* /var/www/html/ && \
+    chown -R www-data:www-data /usr/local/etc/php
+
+RUN \
+    pecl install apcu && \
+    pecl install redis && \
+    pecl install memcached && \
+    docker-php-ext-enable apcu && \
+    docker-php-ext-enable redis && \
+    docker-php-ext-enable memcached
+
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+RUN pecl install xdebug && docker-php-ext-enable xdebug
+
+COPY --chown=www-data:www-data . /data
+USER www-data
+WORKDIR /data
+
+HEALTHCHECK --interval=10s --timeout=3s \
+    CMD \
+    SCRIPT_NAME=/ping \
+    SCRIPT_FILENAME=/ping \
+    REQUEST_METHOD=GET \
+    cgi-fcgi -bind -connect 127.0.0.1:9000 || exit 1
+
+EXPOSE 9000
+
+STOPSIGNAL SIGQUIT
+
+CMD ["php-fpm"]
