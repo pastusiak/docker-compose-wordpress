@@ -1,11 +1,11 @@
 {
-    "name": "pastusiak/website-skeleton",
+    "name": "pastusiak/docker-compose-wordpress",
     "type": "project",
     "license": "MIT",
     "description": "A skeleton to start a new Wordpress website",
     "require": {
         "php": "^7.2.0",
-        "johnpbloch/wordpress": "5.3.*"
+        "johnpbloch/wordpress": "5.4.*"
     },
     "require-dev": {
     },
